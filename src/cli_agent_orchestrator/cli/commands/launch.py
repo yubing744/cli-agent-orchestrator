@@ -6,7 +6,7 @@ import click
 import requests
 
 from cli_agent_orchestrator.constants import DEFAULT_PROVIDER, PROVIDERS, SERVER_HOST, SERVER_PORT
-from cli_agent_orchestrator.utils.provider_preferences import get_installed_provider
+from cli_agent_orchestrator.utils.context_files import get_context_provider
 
 
 @click.command()
@@ -20,7 +20,7 @@ from cli_agent_orchestrator.utils.provider_preferences import get_installed_prov
 def launch(agents, session_name, headless, provider):
     """Launch cao session with specified agent profile."""
     try:
-        selected_provider = provider or get_installed_provider(agents) or DEFAULT_PROVIDER
+        selected_provider = provider or get_context_provider(agents) or DEFAULT_PROVIDER
 
         # Validate provider
         if selected_provider not in PROVIDERS:

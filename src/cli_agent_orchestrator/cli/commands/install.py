@@ -18,7 +18,7 @@ from cli_agent_orchestrator.models.kiro_agent import KiroAgentConfig
 from cli_agent_orchestrator.models.provider import ProviderType
 from cli_agent_orchestrator.models.q_agent import QAgentConfig
 from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
-from cli_agent_orchestrator.utils.provider_preferences import set_installed_provider
+from cli_agent_orchestrator.utils.context_files import write_context_with_provider
 
 
 def _download_agent(source: str) -> str:
@@ -104,8 +104,7 @@ def install(agent_source: str, provider: str):
 
         # Copy markdown file to agent-context directory
         dest_file = AGENT_CONTEXT_DIR / f"{profile.name}.md"
-        with open(source_file, "r") as src:
-            dest_file.write_text(src.read())
+        write_context_with_provider(source_file, provider, dest_file)
 
         # Build allowedTools default if not specified
         allowed_tools = profile.allowedTools
@@ -162,9 +161,6 @@ def install(agent_source: str, provider: str):
         click.echo(f"✓ Context file: {dest_file}")
         if agent_file:
             click.echo(f"✓ {provider} agent: {agent_file}")
-
-        # Persist provider preference for launch defaults
-        set_installed_provider(profile.name, provider)
 
     except FileNotFoundError as e:
         click.echo(f"Error: {e}", err=True)

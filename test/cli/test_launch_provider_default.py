@@ -27,7 +27,7 @@ def test_launch_uses_installed_provider(monkeypatch):
         "cli_agent_orchestrator.cli.commands.launch.subprocess.run", lambda *a, **k: None
     )
     monkeypatch.setattr(
-        "cli_agent_orchestrator.cli.commands.launch.get_installed_provider",
+        "cli_agent_orchestrator.cli.commands.launch.get_context_provider",
         lambda agent: "droid",
     )
 
