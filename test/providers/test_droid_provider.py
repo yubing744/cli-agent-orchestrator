@@ -1,5 +1,6 @@
 """Unit tests for Droid provider."""
 
+import re
 from pathlib import Path
 from unittest.mock import patch
 
@@ -74,6 +75,15 @@ class TestDroidProviderStatusDetection:
         assert status == TerminalStatus.IDLE
 
     @patch("cli_agent_orchestrator.providers.droid.tmux_client")
+    def test_get_status_idle_box_prompt(self, mock_tmux):
+        mock_tmux.get_history.return_value = load_fixture("droid_idle_box_output.txt")
+
+        provider = DroidProvider("test1234", "test-session", "window-0")
+        status = provider.get_status()
+
+        assert status == TerminalStatus.IDLE
+
+    @patch("cli_agent_orchestrator.providers.droid.tmux_client")
     def test_get_status_completed(self, mock_tmux):
         mock_tmux.get_history.return_value = load_fixture("droid_completed_output.txt")
 
@@ -140,4 +150,5 @@ class TestDroidProviderEdgeCases:
 
     def test_get_idle_pattern_for_log(self):
         provider = DroidProvider("test1234", "test-session", "window-0")
-        assert provider.get_idle_pattern_for_log() == r">\s*$"
+        pattern = provider.get_idle_pattern_for_log()
+        assert re.search(pattern, load_fixture("droid_idle_box_output.txt"))

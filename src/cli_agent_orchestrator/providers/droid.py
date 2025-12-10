@@ -11,8 +11,9 @@ from cli_agent_orchestrator.utils.terminal import wait_for_shell, wait_until_sta
 
 # Regex patterns for Droid output analysis
 ANSI_CODE_PATTERN = r"\x1b\[[0-9;]*m"
-PROMPT_PATTERN = r"^>\s*$"
-IDLE_PROMPT_PATTERN_LOG = r">\s*$"
+BOX_DRAWING_PATTERN = r"[\u2500-\u257F]"
+PROMPT_PATTERN = r"^\s*>\s*$"
+IDLE_PROMPT_PATTERN_LOG = r">\s*[\u2500-\u257F\s]*$"
 
 
 class DroidProvider(BaseProvider):
@@ -53,7 +54,7 @@ class DroidProvider(BaseProvider):
         if not output:
             return TerminalStatus.ERROR
 
-        clean_output = re.sub(ANSI_CODE_PATTERN, "", output)
+        clean_output = self._normalize_output(output)
 
         prompts = list(re.finditer(PROMPT_PATTERN, clean_output, re.MULTILINE))
 
@@ -73,7 +74,7 @@ class DroidProvider(BaseProvider):
 
     def extract_last_message_from_script(self, script_output: str) -> str:
         """Extract the last Droid response using prompt delimiters."""
-        clean_output = re.sub(ANSI_CODE_PATTERN, "", script_output)
+        clean_output = self._normalize_output(script_output)
         prompts = list(re.finditer(PROMPT_PATTERN, clean_output, re.MULTILINE))
 
         if len(prompts) < 2:
@@ -96,3 +97,8 @@ class DroidProvider(BaseProvider):
     def cleanup(self) -> None:
         """Clean up Droid provider."""
         self._initialized = False
+
+    def _normalize_output(self, output: str) -> str:
+        """Remove ANSI codes and box-drawing characters for parsing."""
+        no_ansi = re.sub(ANSI_CODE_PATTERN, "", output)
+        return re.sub(BOX_DRAWING_PATTERN, "", no_ansi)
