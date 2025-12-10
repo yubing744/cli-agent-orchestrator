@@ -34,6 +34,7 @@ INBOX_SERVICE_TAIL_LINES = 5  # Number of lines to check in get_status for inbox
 RETENTION_DAYS = 14  # Days to keep terminals, messages, and logs
 
 AGENT_CONTEXT_DIR = CAO_HOME_DIR / "agent-context"
+PROVIDER_PREFS_FILE = AGENT_CONTEXT_DIR / "provider_preferences.json"
 
 # Agent store directories
 LOCAL_AGENT_STORE_DIR = CAO_HOME_DIR / "agent-store"
