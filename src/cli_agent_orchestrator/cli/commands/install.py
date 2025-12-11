@@ -102,7 +102,7 @@ def install(agent_source: str, provider: str):
             agent_store = resources.files("cli_agent_orchestrator.agent_store")
             source_file = agent_store / f"{agent_name}.md"
 
-        # Copy markdown file to agent-context directory
+        # Copy markdown file to agent-context directory with provider metadata
         dest_file = AGENT_CONTEXT_DIR / f"{profile.name}.md"
         write_context_with_provider(source_file, provider, dest_file)
 
