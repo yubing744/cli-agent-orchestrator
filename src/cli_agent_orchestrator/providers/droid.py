@@ -92,7 +92,7 @@ class DroidProvider(BaseProvider):
 
     def exit_cli(self) -> str:
         """Get the command to exit Droid CLI."""
-        return "/exit"
+        return "/quit"
 
     def cleanup(self) -> None:
         """Clean up Droid provider."""
