@@ -9,3 +9,4 @@ class ProviderType(str, Enum):
     CLAUDE_CODE = "claude_code"
     DROID = "droid"
     CODEX = "codex"
+    OPEN_AUTOGLM = "open_autoglm"

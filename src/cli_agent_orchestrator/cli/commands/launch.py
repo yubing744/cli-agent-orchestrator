@@ -15,7 +15,7 @@ from cli_agent_orchestrator.utils.context_files import get_context_provider
 @click.option("--headless", is_flag=True, help="Launch in detached mode")
 @click.option(
     "--provider",
-    help="Provider to use (default: installed provider for the agent or q_cli)",
+    help="Provider to use (default: provider in agent context or q_cli)",
 )
 def launch(agents, session_name, headless, provider):
     """Launch cao session with specified agent profile."""
