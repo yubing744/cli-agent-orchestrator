@@ -85,9 +85,18 @@ cao install developer --provider kiro_cli
 
 # Install for Amazon Q CLI (default)
 cao install developer --provider q_cli
+
+# Install for Codex CLI
+cao install developer --provider codex
 ```
 
 Note: The `claude_code` provider does not require agent installation.
+
+### Codex CLI Provider
+
+CAO supports the **Codex CLI** provider for orchestrating agents via the Codex CLI tool. This enables supervisor/worker workflows where the supervisor delegates implementation to a worker and optionally requests a review.
+
+For detailed setup instructions and examples, see [docs/codex-cli.md](docs/codex-cli.md).
 
 For details on creating custom agent profiles, see [docs/agent-profile.md](docs/agent-profile.md).
 

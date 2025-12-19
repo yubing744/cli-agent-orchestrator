@@ -120,6 +120,35 @@ class TestCodexProviderStatusDetection:
         assert status == TerminalStatus.IDLE
         mock_tmux.get_history.assert_called_once_with("test-session", "window-0", tail_lines=50)
 
+    @patch("cli_agent_orchestrator.providers.codex.tmux_client")
+    def test_get_status_processing_when_old_prompt_present(self, mock_tmux):
+        # If the captured history contains an earlier prompt but the *latest* output is processing,
+        # we should report PROCESSING.
+        mock_tmux.get_history.return_value = (
+            "Welcome to Codex\n" "❯ \n" "You Fix the failing tests\n" "Codex is thinking…\n"
+        )
+
+        provider = CodexProvider("test1234", "test-session", "window-0")
+        status = provider.get_status()
+
+        assert status == TerminalStatus.PROCESSING
+
+    @patch("cli_agent_orchestrator.providers.codex.tmux_client")
+    def test_get_status_not_error_on_failed_in_message(self, mock_tmux):
+        # "failed" is commonly used in normal assistant output; it should not automatically
+        # force ERROR.
+        mock_tmux.get_history.return_value = (
+            "You Explain why the test failed\n"
+            "assistant: The test failed because the assertion is incorrect.\n"
+            "\n"
+            "❯ \n"
+        )
+
+        provider = CodexProvider("test1234", "test-session", "window-0")
+        status = provider.get_status()
+
+        assert status == TerminalStatus.COMPLETED
+
 
 class TestCodexProviderMessageExtraction:
     def test_extract_last_message_success(self):

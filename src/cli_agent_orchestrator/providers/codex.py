@@ -13,12 +13,16 @@ logger = logging.getLogger(__name__)
 
 # Regex patterns for Codex output analysis
 ANSI_CODE_PATTERN = r"\x1b\[[0-9;]*m"
-IDLE_PROMPT_PATTERN = r"(?:^❯\s*$|^›\s*$|^>\s*$|^codex>\s*$|^You>?\s*$)"
+IDLE_PROMPT_PATTERN = r"(?:❯|›|>|codex>|You>?)"
+# Match the prompt only if it appears at the end of the captured output.
+IDLE_PROMPT_AT_END_PATTERN = rf"(?:^\s*{IDLE_PROMPT_PATTERN}\s*$)\s*\Z"
 IDLE_PROMPT_PATTERN_LOG = r"❯"
 ASSISTANT_PREFIX_PATTERN = r"^(?:assistant|codex|agent)\s*:"
-PROCESSING_PATTERN = r"(thinking|working|running|executing|processing|analyzing)"
-WAITING_PROMPT_PATTERN = r"(approve|allow).*(y/n|yes|no)"
-ERROR_INDICATORS = ["error", "failed", "panic"]
+USER_PREFIX_PATTERN = r"^You\b"
+
+PROCESSING_PATTERN = r"\b(thinking|working|running|executing|processing|analyzing)\b"
+WAITING_PROMPT_PATTERN = r"^(?:Approve|Allow)\b.*\b(?:y/n|yes/no|yes|no)\b"
+ERROR_PATTERN = r"^(?:Error:|ERROR:|Traceback \(most recent call last\):|panic:)"
 
 
 class CodexProvider(BaseProvider):
@@ -56,21 +60,38 @@ class CodexProvider(BaseProvider):
             return TerminalStatus.ERROR
 
         clean_output = re.sub(ANSI_CODE_PATTERN, "", output)
-        lowered_output = clean_output.lower()
+        tail_output = "\n".join(clean_output.splitlines()[-25:])
 
-        if any(indicator in lowered_output for indicator in ERROR_INDICATORS):
+        if re.search(ERROR_PATTERN, tail_output, re.IGNORECASE | re.MULTILINE):
             return TerminalStatus.ERROR
 
-        if re.search(WAITING_PROMPT_PATTERN, clean_output, re.IGNORECASE | re.DOTALL):
+        if re.search(WAITING_PROMPT_PATTERN, tail_output, re.IGNORECASE | re.MULTILINE):
             return TerminalStatus.WAITING_USER_ANSWER
 
-        idle_match = re.search(IDLE_PROMPT_PATTERN, clean_output, re.MULTILINE)
-        if idle_match:
+        has_idle_prompt_at_end = bool(
+            re.search(IDLE_PROMPT_AT_END_PATTERN, clean_output, re.IGNORECASE | re.MULTILINE)
+        )
+        if has_idle_prompt_at_end:
+            # Consider COMPLETED only if we see an assistant marker after the last user message.
+            last_user = None
+            for match in re.finditer(
+                USER_PREFIX_PATTERN, clean_output, re.IGNORECASE | re.MULTILINE
+            ):
+                last_user = match
+
+            if last_user is not None and re.search(
+                ASSISTANT_PREFIX_PATTERN,
+                clean_output[last_user.start() :],
+                re.IGNORECASE | re.MULTILINE,
+            ):
+                return TerminalStatus.COMPLETED
+
             if re.search(ASSISTANT_PREFIX_PATTERN, clean_output, re.IGNORECASE | re.MULTILINE):
                 return TerminalStatus.COMPLETED
+
             return TerminalStatus.IDLE
 
-        if re.search(PROCESSING_PATTERN, clean_output, re.IGNORECASE):
+        if re.search(PROCESSING_PATTERN, tail_output, re.IGNORECASE):
             return TerminalStatus.PROCESSING
 
         return TerminalStatus.ERROR
@@ -93,7 +114,11 @@ class CodexProvider(BaseProvider):
         last_match = matches[-1]
         start_pos = last_match.end()
 
-        idle_after = re.search(IDLE_PROMPT_PATTERN, clean_output[start_pos:], re.MULTILINE)
+        idle_after = re.search(
+            IDLE_PROMPT_AT_END_PATTERN,
+            clean_output[start_pos:],
+            re.IGNORECASE | re.MULTILINE,
+        )
         end_pos = start_pos + idle_after.start() if idle_after else len(clean_output)
 
         final_answer = clean_output[start_pos:end_pos].strip()
