@@ -79,22 +79,21 @@ class CodexProvider(BaseProvider):
             ):
                 last_user = match
 
-            if last_user is not None and re.search(
-                ASSISTANT_PREFIX_PATTERN,
-                clean_output[last_user.start() :],
-                re.IGNORECASE | re.MULTILINE,
-            ):
-                return TerminalStatus.COMPLETED
+            if last_user is not None:
+                if re.search(
+                    ASSISTANT_PREFIX_PATTERN,
+                    clean_output[last_user.start() :],
+                    re.IGNORECASE | re.MULTILINE,
+                ):
+                    return TerminalStatus.COMPLETED
 
-            if re.search(ASSISTANT_PREFIX_PATTERN, clean_output, re.IGNORECASE | re.MULTILINE):
-                return TerminalStatus.COMPLETED
+                return TerminalStatus.IDLE
 
             return TerminalStatus.IDLE
 
-        if re.search(PROCESSING_PATTERN, tail_output, re.IGNORECASE):
-            return TerminalStatus.PROCESSING
-
-        return TerminalStatus.ERROR
+        # If we're not at an idle prompt and we don't see explicit errors/permission prompts,
+        # assume the CLI is still producing output.
+        return TerminalStatus.PROCESSING
 
     def get_idle_pattern_for_log(self) -> str:
         """Return Codex IDLE prompt pattern for log files."""
