@@ -69,24 +69,26 @@ cd {openautoglm_dir} && uvx --python 3.11 --with openai --with pillow python mai
     def initialize(self) -> bool:
         """Initialize OpenAutoGLM provider by starting the CLI."""
         try:
-            # First try to start without system checks since we know ADB keyboard is installed
-            command = self._build_openautoglm_command() + " --skip-system-check"
+            # Start OpenAutoGLM with normal system checks
+            command = self._build_openautoglm_command()
 
             # Send OpenAutoGLM command using tmux client
             tmux_client.send_keys(self.session_name, self.window_name, command)
 
             # Wait for interactive mode prompt to be ready
             # Give it more time as ADB setup might take longer
-            if not wait_until_status(self, TerminalStatus.IDLE, timeout=60.0, polling_interval=2.0):
+            if not wait_until_status(self, TerminalStatus.IDLE, timeout=120.0, polling_interval=2.0):
                 # Check if there's an error message
-                output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=20)
-                if re.search(ERROR_PATTERN, output, re.IGNORECASE):
-                    print(f"⚠️ 警告: OpenAutoGLM启动时遇到系统检查问题: {output[:100]}")
-                    # Continue anyway since we know ADB keyboard is actually working
-                    pass
+                output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=30)
+                if re.search(r"❌ System check failed", output):
+                    print(f"❌ OpenAutoGLM系统检查失败: {output[:200]}")
+                    raise ProviderError(f"System check failed: {output}")
+                elif re.search(ERROR_PATTERN, output, re.IGNORECASE):
+                    print(f"⚠️ OpenAutoGLM启动遇到错误: {output[:100]}")
+                    raise ProviderError(f"OpenAutoGLM startup error: {output}")
 
             self._initialized = True
-            print("✅ OpenAutoGLM启动成功 (跳过系统检查)")
+            print("✅ OpenAutoGLM启动成功")
             return True
 
         except Exception as e:
