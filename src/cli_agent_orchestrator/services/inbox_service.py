@@ -1,8 +1,6 @@
-"""Inbox service with watchdog for automatic message delivery."""
+"""Inbox service with O(1) log scheduling for automatic message delivery."""
 
 import logging
-import re
-import subprocess
 from pathlib import Path
 
 from watchdog.events import FileModifiedEvent, FileSystemEventHandler
@@ -13,35 +11,31 @@ from cli_agent_orchestrator.models.inbox import MessageStatus
 from cli_agent_orchestrator.models.terminal import TerminalStatus
 from cli_agent_orchestrator.providers.manager import provider_manager
 from cli_agent_orchestrator.services import terminal_service
+from cli_agent_orchestrator.utils.log_scheduler import get_log_reader
 
 logger = logging.getLogger(__name__)
 
-
-def _get_log_tail(terminal_id: str, lines: int = 5) -> str:
-    """Get last N lines from terminal log file."""
-    log_path = TERMINAL_LOG_DIR / f"{terminal_id}.log"
-    try:
-        result = subprocess.run(
-            ["tail", "-n", str(lines), str(log_path)], capture_output=True, text=True, timeout=1
-        )
-        return result.stdout
-    except Exception:
-        return ""
+# Global O(1) log reader
+_log_reader = get_log_reader()
 
 
 def _has_idle_pattern(terminal_id: str) -> bool:
-    """Check if log tail contains idle pattern without expensive tmux calls."""
-    tail = _get_log_tail(terminal_id)
-    if not tail:
-        return False
+    """Check if log tail contains idle pattern using O(1) incremental reading.
 
+    This replaces the O(N) subprocess tail approach with O(1) position tracking.
+    """
     try:
         provider = provider_manager.get_provider(terminal_id)
         if provider is None:
             return False
         idle_pattern = provider.get_idle_pattern_for_log()
-        return bool(re.search(idle_pattern, tail))
-    except Exception:
+
+        # Use O(1) log reader to check for idle pattern
+        content = _log_reader.sync_and_check(terminal_id, idle_pattern)
+        return content is not None
+
+    except Exception as e:
+        logger.debug(f"Error checking idle pattern for {terminal_id}: {e}")
         return False
 
 
@@ -87,10 +81,18 @@ def check_and_send_pending_messages(terminal_id: str) -> bool:
 
 
 class LogFileHandler(FileSystemEventHandler):
-    """Handler for terminal log file changes."""
+    """Handler for terminal log file changes with O(1) scheduling.
+
+    This handler uses the O(1) log reader to efficiently detect when
+    terminals become idle and deliver pending messages.
+    """
+
+    def __init__(self):
+        """Initialize handler with O(1) log reader."""
+        self.log_reader = _log_reader
 
     def on_modified(self, event):
-        """Handle file modification events."""
+        """Handle file modification events with O(1) incremental processing."""
         if isinstance(event, FileModifiedEvent) and event.src_path.endswith(".log"):
             log_path = Path(event.src_path)
             terminal_id = log_path.stem
@@ -98,15 +100,19 @@ class LogFileHandler(FileSystemEventHandler):
             self._handle_log_change(terminal_id)
 
     def _handle_log_change(self, terminal_id: str):
-        """Handle log file change and attempt message delivery."""
+        """Handle log file change and attempt message delivery using O(1) scheduling."""
         try:
-            # Check for pending messages first
+            # Check for pending messages first (fast DB query)
             messages = get_pending_messages(terminal_id, limit=1)
             if not messages:
                 logger.debug(f"No pending messages for {terminal_id}, skipping")
                 return
 
-            # Fast check: does log tail have idle pattern?
+            # O(1) check: sync new content and check for idle pattern
+            # This is efficient because:
+            # 1. Only reads new content (not entire file)
+            # 2. Uses in-memory buffer for pattern matching
+            # 3. No subprocess calls to tail
             if not _has_idle_pattern(terminal_id):
                 logger.debug(
                     f"Terminal {terminal_id} not idle (no idle pattern in log tail), skipping"
