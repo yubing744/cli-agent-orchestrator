@@ -46,22 +46,24 @@ class OpenAutoGLMProvider(BaseProvider):
 
     def _build_openautoglm_command(self) -> str:
         """Build OpenAutoGLM command with environment configuration."""
-        # Use uvx to ensure dependencies are available
+        # Use system python3 which has openai/pillow already installed
         openautoglm_dir = os.path.dirname(self._openautoglm_path)
 
         # Set environment variables for local model configuration
+        # Add PHONE_AGENT_DEVICE_ID to handle multi-device setups
+        # Use 4bit model instead of 6bit to reduce memory requirements
         env_setup = """
 export PHONE_AGENT_BASE_URL="http://localhost:1234/v1"
-export PHONE_AGENT_MODEL="autoglm-phone-9b-multilingual@6bit"
+export PHONE_AGENT_MODEL="autoglm-phone-9b-multilingual@4bit"
 export PHONE_AGENT_API_KEY=""
 export PHONE_AGENT_LANG="en"
-export OPENAUTOGLM_UVX_CMD="uvx --python 3.11 --with openai --with pillow"
+export PHONE_AGENT_DEVICE_ID="127.0.0.1:5555"
 export OPENAUTOGLM_PATH="%(openautoglm_dir)s"
 """ % {"openautoglm_dir": openautoglm_dir}
 
-        # Build command with uvx for proper dependency management
+        # Build command using system python3 (has openai/pillow pre-installed)
         command = f"""{env_setup}
-cd {openautoglm_dir} && uvx --python 3.11 --with openai --with pillow python main.py"""
+cd {openautoglm_dir} && python3 main.py"""
 
         # For CAO integration, we'll use interactive mode
         return command
@@ -103,9 +105,15 @@ cd {openautoglm_dir} && uvx --python 3.11 --with openai --with pillow python mai
         if not output:
             return TerminalStatus.ERROR
 
-        # Check for error state first
-        if re.search(ERROR_PATTERN, output, re.IGNORECASE):
-            return TerminalStatus.ERROR
+        # Check for IDLE state FIRST - this takes precedence over error messages
+        # because the system may show error messages during startup but still reach IDLE
+        if re.search(INTERACTIVE_MODE_PATTERN, output) or re.search(IDLE_PROMPT_PATTERN, output):
+            return TerminalStatus.IDLE
+
+        # Check for completed state (has result and ready for next input)
+        if re.search(RESULT_PATTERN, output) or re.search(TASK_COMPLETED_PATTERN, output):
+            if re.search(IDLE_PROMPT_PATTERN, output):
+                return TerminalStatus.COMPLETED
 
         # Check for processing state (thinking or executing actions)
         if re.search(THINKING_PATTERN, output):
@@ -114,15 +122,10 @@ cd {openautoglm_dir} && uvx --python 3.11 --with openai --with pillow python mai
         if re.search(ACTION_PATTERN, output):
             return TerminalStatus.PROCESSING
 
-        # Check for completed state (has result and ready for next input)
-        if re.search(RESULT_PATTERN, output) or re.search(TASK_COMPLETED_PATTERN, output):
-            # Check if we're back to the prompt
-            if re.search(IDLE_PROMPT_PATTERN, output):
-                return TerminalStatus.COMPLETED
-
-        # Check for idle state (interactive mode ready for input)
-        if re.search(INTERACTIVE_MODE_PATTERN, output) or re.search(IDLE_PROMPT_PATTERN, output):
-            return TerminalStatus.IDLE
+        # Check for error state only if no positive state detected
+        # This prevents false positives from benign "Error:" messages in system checks
+        if re.search(ERROR_PATTERN, output, re.IGNORECASE):
+            return TerminalStatus.ERROR
 
         # If no recognizable state, return ERROR
         return TerminalStatus.ERROR
