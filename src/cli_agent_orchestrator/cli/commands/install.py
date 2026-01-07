@@ -4,7 +4,7 @@ from importlib import resources
 from pathlib import Path
 
 import click
-import requests
+import requests  # type: ignore[import-untyped]
 
 from cli_agent_orchestrator.constants import (
     AGENT_CONTEXT_DIR,
@@ -19,6 +19,13 @@ from cli_agent_orchestrator.models.provider import ProviderType
 from cli_agent_orchestrator.models.q_agent import QAgentConfig
 from cli_agent_orchestrator.utils.agent_profiles import load_agent_profile
 from cli_agent_orchestrator.utils.context_files import write_context_with_provider
+
+
+def _find_repo_root(start: Path) -> Path | None:
+    for parent in [start, *start.parents]:
+        if (parent / "pyproject.toml").exists():
+            return parent
+    return None
 
 
 def _download_agent(source: str) -> str:
@@ -99,8 +106,15 @@ def install(agent_source: str, provider: str):
         if local_profile.exists():
             source_file = local_profile
         else:
-            agent_store = resources.files("cli_agent_orchestrator.agent_store")
-            source_file = agent_store / f"{agent_name}.md"
+            repo_root = _find_repo_root(Path.cwd())
+            repo_profile = (
+                (repo_root / "agents" / f"{agent_name}.md") if repo_root is not None else None
+            )
+            if repo_profile is not None and repo_profile.exists():
+                source_file = repo_profile
+            else:
+                agent_store = resources.files("cli_agent_orchestrator.agent_store")
+                source_file = agent_store / f"{agent_name}.md"
 
         # Copy markdown file to agent-context directory with provider metadata
         dest_file = AGENT_CONTEXT_DIR / f"{profile.name}.md"

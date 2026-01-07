@@ -9,7 +9,11 @@ from fastapi import FastAPI, HTTPException, Path, Query, status
 from pydantic import BaseModel, Field, field_validator
 from watchdog.observers.polling import PollingObserver
 
-from cli_agent_orchestrator.clients.database import create_inbox_message, get_inbox_messages, init_db
+from cli_agent_orchestrator.clients.database import (
+    create_inbox_message,
+    get_inbox_messages,
+    init_db,
+)
 from cli_agent_orchestrator.constants import (
     DEFAULT_PROVIDER,
     INBOX_POLLING_INTERVAL,
@@ -116,7 +120,9 @@ async def health_check():
 
 @app.post("/sessions", response_model=Terminal, status_code=status.HTTP_201_CREATED)
 async def create_session(
-    provider: Optional[str] = None, agent_profile: str = Query(...), session_name: Optional[str] = None
+    provider: Optional[str] = None,
+    agent_profile: str = Query(...),
+    session_name: Optional[str] = None,
 ) -> Terminal:
     """Create a new session with exactly one terminal."""
     try:
@@ -334,7 +340,9 @@ async def create_inbox_message_endpoint(
 async def get_inbox_messages_endpoint(
     terminal_id: TerminalId,
     limit: int = Query(default=10, le=100, description="Maximum number of messages to retrieve"),
-    status: Optional[str] = Query(default=None, description="Filter by message status"),
+    message_status: Optional[str] = Query(
+        default=None, description="Filter by message status", alias="status"
+    ),
 ) -> List[Dict]:
     """Get inbox messages for a terminal.
 
@@ -349,13 +357,15 @@ async def get_inbox_messages_endpoint(
     try:
         # Convert status filter if provided
         status_filter = None
-        if status:
+        if message_status:
             try:
-                status_filter = MessageStatus(status)
+                status_filter = MessageStatus(message_status)
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Invalid status: {status}. Valid values: pending, delivered, failed"
+                    detail=(
+                        f"Invalid status: {message_status}. Valid values: pending, delivered, failed"
+                    ),
                 )
 
         # Get messages using existing database function
@@ -364,14 +374,16 @@ async def get_inbox_messages_endpoint(
         # Convert to response format
         result = []
         for msg in messages:
-            result.append({
-                "id": msg.id,
-                "sender_id": msg.sender_id,
-                "receiver_id": msg.receiver_id,
-                "message": msg.message,
-                "status": msg.status.value,
-                "created_at": msg.created_at.isoformat() if msg.created_at else None,
-            })
+            result.append(
+                {
+                    "id": msg.id,
+                    "sender_id": msg.sender_id,
+                    "receiver_id": msg.receiver_id,
+                    "message": msg.message,
+                    "status": msg.status.value,
+                    "created_at": msg.created_at.isoformat() if msg.created_at else None,
+                }
+            )
 
         return result
 
@@ -383,7 +395,7 @@ async def get_inbox_messages_endpoint(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to retrieve inbox messages: {str(e)}"
+            detail=f"Failed to retrieve inbox messages: {str(e)}",
         )
 
 

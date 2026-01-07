@@ -6,8 +6,8 @@ from typing import Dict, Optional
 from cli_agent_orchestrator.clients.database import get_terminal_metadata
 from cli_agent_orchestrator.models.provider import ProviderType
 from cli_agent_orchestrator.providers.base import BaseProvider
-from cli_agent_orchestrator.providers.codex import CodexProvider
 from cli_agent_orchestrator.providers.claude_code import ClaudeCodeProvider
+from cli_agent_orchestrator.providers.codex import CodexProvider
 from cli_agent_orchestrator.providers.droid import DroidProvider
 from cli_agent_orchestrator.providers.kiro_cli import KiroCliProvider
 from cli_agent_orchestrator.providers.open_autoglm import OpenAutoGLMProvider
@@ -48,7 +48,9 @@ class ProviderManager:
             elif provider_type == ProviderType.CODEX.value:
                 provider = CodexProvider(terminal_id, tmux_session, tmux_window, agent_profile)
             elif provider_type == ProviderType.OPEN_AUTOGLM.value:
-                provider = OpenAutoGLMProvider(terminal_id, tmux_session, tmux_window, agent_profile)
+                provider = OpenAutoGLMProvider(
+                    terminal_id, tmux_session, tmux_window, agent_profile
+                )
             else:
                 raise ValueError(f"Unknown provider type: {provider_type}")
 

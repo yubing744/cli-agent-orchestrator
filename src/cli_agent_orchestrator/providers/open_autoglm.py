@@ -13,6 +13,7 @@ from cli_agent_orchestrator.utils.terminal import wait_until_status
 
 class ProviderError(Exception):
     """Exception raised for provider-specific errors."""
+
     pass
 
 
@@ -59,7 +60,9 @@ export PHONE_AGENT_API_KEY=""
 export PHONE_AGENT_LANG="en"
 export PHONE_AGENT_DEVICE_ID="127.0.0.1:5555"
 export OPENAUTOGLM_PATH="%(openautoglm_dir)s"
-""" % {"openautoglm_dir": openautoglm_dir}
+""" % {
+            "openautoglm_dir": openautoglm_dir
+        }
 
         # Build command using system python3 (has openai/pillow pre-installed)
         command = f"""{env_setup}
@@ -79,7 +82,9 @@ cd {openautoglm_dir} && python3 main.py"""
 
             # Wait for interactive mode prompt to be ready
             # Give it more time as ADB setup might take longer
-            if not wait_until_status(self, TerminalStatus.IDLE, timeout=120.0, polling_interval=2.0):
+            if not wait_until_status(
+                self, TerminalStatus.IDLE, timeout=120.0, polling_interval=2.0
+            ):
                 # Check if there's an error message
                 output = tmux_client.get_history(self.session_name, self.window_name, tail_lines=30)
                 if re.search(r"❌ System check failed", output):
@@ -155,22 +160,22 @@ cd {openautoglm_dir} && python3 main.py"""
                 # Skip the JSON action block
                 remaining = script_output[start_pos:]
                 # Find the next content after the JSON
-                json_match = re.search(r'\n\s*}\s*\n', remaining)
+                json_match = re.search(r"\n\s*}\s*\n", remaining)
                 if json_match:
                     start_pos = start_pos + json_match.end()
                     remaining_text = script_output[start_pos:]
                     # Extract meaningful content
-                    lines = remaining_text.split('\n')
+                    lines = remaining_text.split("\n")
                     result_lines = []
                     for line in lines:
                         line = line.strip()
-                        if line and not line.startswith('=') and not line.startswith('-'):
+                        if line and not line.startswith("=") and not line.startswith("-"):
                             result_lines.append(line)
                         elif result_lines:  # Stop at first separator after content
                             break
 
                     if result_lines:
-                        return '\n'.join(result_lines).strip()
+                        return "\n".join(result_lines).strip()
 
             raise ValueError("No OpenAutoGLM result found in output")
 
@@ -179,13 +184,13 @@ cd {openautoglm_dir} && python3 main.py"""
         remaining_text = script_output[start_pos:]
 
         # Clean up and return the result
-        lines = remaining_text.split('\n')
+        lines = remaining_text.split("\n")
         result_lines = []
 
         for line in lines:
             line = line.strip()
             # Skip empty lines and separators
-            if not line or line.startswith('=') or line.startswith('-'):
+            if not line or line.startswith("=") or line.startswith("-"):
                 if result_lines:  # Stop if we already have content
                     break
                 continue
@@ -194,7 +199,7 @@ cd {openautoglm_dir} && python3 main.py"""
         if not result_lines:
             raise ValueError("Empty OpenAutoGLM result")
 
-        return '\n'.join(result_lines).strip()
+        return "\n".join(result_lines).strip()
 
     def exit_cli(self) -> str:
         """Get the command to exit OpenAutoGLM."""

@@ -1,0 +1,6 @@
+Welcome to Factory CLI
+
+Please login with your Factory account to continue.
+
+> Login
+  Exit

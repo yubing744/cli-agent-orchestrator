@@ -33,3 +33,7 @@ class AgentProfile(BaseModel):
     hooks: Optional[Dict[str, Any]] = None
     useLegacyMcpJson: Optional[bool] = None
     model: Optional[str] = None
+
+    # Claude Code provider customization
+    claude_code_launcher: Optional[str] = None
+    claude_code_launcher_args: Optional[List[str]] = None

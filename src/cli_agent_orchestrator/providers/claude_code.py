@@ -45,20 +45,27 @@ class ClaudeCodeProvider(BaseProvider):
 
     def _build_claude_command(self) -> List[str]:
         """Build Claude Code command with agent profile if provided."""
-        command_parts = ["claude"]
+        command_parts: List[str] = ["claude"]
 
         if self._agent_profile is not None:
             try:
                 profile = load_agent_profile(self._agent_profile)
 
+                launcher = profile.claude_code_launcher
+                launcher_args = profile.claude_code_launcher_args
+                if launcher:
+                    command_parts = [launcher]
+                    if launcher_args:
+                        command_parts.extend(launcher_args)
+
                 # Add system prompt with proper escaping
                 system_prompt = profile.system_prompt if profile.system_prompt is not None else ""
-                command_parts.extend(["--append-system-prompt", shlex.quote(system_prompt)])
+                command_parts.extend(["--append-system-prompt", system_prompt])
 
                 # Add MCP config if present
                 if profile.mcpServers:
                     mcp_json = profile.model_dump_json(include={"mcpServers"})
-                    command_parts.extend(["--mcp-config", shlex.quote(mcp_json)])
+                    command_parts.extend(["--mcp-config", mcp_json])
 
             except Exception as e:
                 raise ProviderError(f"Failed to load agent profile '{self._agent_profile}': {e}")
@@ -69,7 +76,7 @@ class ClaudeCodeProvider(BaseProvider):
         """Initialize Claude Code provider by starting claude command."""
         # Build command with agent profile support
         command_parts = self._build_claude_command()
-        command = " ".join(command_parts)
+        command = " ".join(shlex.quote(part) for part in command_parts)
 
         # Send Claude Code command using tmux client
         tmux_client.send_keys(self.session_name, self.window_name, command)

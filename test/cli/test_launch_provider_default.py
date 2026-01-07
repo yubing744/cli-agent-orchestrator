@@ -19,9 +19,7 @@ def test_launch_uses_context_provider(monkeypatch):
         calls["params"] = params
         return DummyResponse()
 
-    monkeypatch.setattr(
-        "cli_agent_orchestrator.cli.commands.launch.requests.post", fake_post
-    )
+    monkeypatch.setattr("cli_agent_orchestrator.cli.commands.launch.requests.post", fake_post)
     monkeypatch.setattr(
         "cli_agent_orchestrator.cli.commands.launch.subprocess.run", lambda *a, **k: None
     )

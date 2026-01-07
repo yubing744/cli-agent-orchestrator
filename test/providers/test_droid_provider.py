@@ -23,11 +23,11 @@ class TestDroidProviderInitialization:
     """Test Droid provider initialization."""
 
     @patch("cli_agent_orchestrator.providers.droid.wait_for_shell")
-    @patch("cli_agent_orchestrator.providers.droid.wait_until_status")
     @patch("cli_agent_orchestrator.providers.droid.tmux_client")
-    def test_initialize_success(self, mock_tmux, mock_wait_status, mock_wait_shell):
+    @patch("cli_agent_orchestrator.providers.droid.DroidProvider.get_status")
+    def test_initialize_success(self, mock_get_status, mock_tmux, mock_wait_shell):
         mock_wait_shell.return_value = True
-        mock_wait_status.return_value = True
+        mock_get_status.return_value = TerminalStatus.IDLE
 
         provider = DroidProvider("test1234", "test-session", "window-0", "review this repo")
         result = provider.initialize()
@@ -37,7 +37,7 @@ class TestDroidProviderInitialization:
         mock_tmux.send_keys.assert_called_once_with(
             "test-session", "window-0", "droid 'review this repo'"
         )
-        mock_wait_status.assert_called_once()
+        mock_get_status.assert_called()
 
     @patch("cli_agent_orchestrator.providers.droid.wait_for_shell")
     @patch("cli_agent_orchestrator.providers.droid.tmux_client")
@@ -50,16 +50,19 @@ class TestDroidProviderInitialization:
             provider.initialize()
 
     @patch("cli_agent_orchestrator.providers.droid.wait_for_shell")
-    @patch("cli_agent_orchestrator.providers.droid.wait_until_status")
     @patch("cli_agent_orchestrator.providers.droid.tmux_client")
-    def test_initialize_droid_timeout(self, mock_tmux, mock_wait_status, mock_wait_shell):
+    @patch("cli_agent_orchestrator.providers.droid.DroidProvider.get_status")
+    @patch("cli_agent_orchestrator.providers.droid.time.time")
+    def test_initialize_droid_does_not_timeout_on_processing(
+        self, mock_time, mock_get_status, mock_tmux, mock_wait_shell
+    ):
         mock_wait_shell.return_value = True
-        mock_wait_status.return_value = False
+        mock_get_status.return_value = TerminalStatus.PROCESSING
+        mock_time.side_effect = [0.0, 0.0, 4.0]
 
         provider = DroidProvider("test1234", "test-session", "window-0", None)
 
-        with pytest.raises(TimeoutError, match="Droid initialization timed out"):
-            provider.initialize()
+        assert provider.initialize() is True
 
 
 class TestDroidProviderStatusDetection:
@@ -110,6 +113,24 @@ class TestDroidProviderStatusDetection:
 
         assert status == TerminalStatus.IDLE
         mock_tmux.get_history.assert_called_once_with("test-session", "window-0", tail_lines=20)
+
+    @patch("cli_agent_orchestrator.providers.droid.tmux_client")
+    def test_get_status_waiting_login_menu(self, mock_tmux):
+        mock_tmux.get_history.return_value = load_fixture("droid_login_required_output.txt")
+
+        provider = DroidProvider("test1234", "test-session", "window-0")
+        status = provider.get_status()
+
+        assert status == TerminalStatus.WAITING_USER_ANSWER
+
+    @patch("cli_agent_orchestrator.providers.droid.tmux_client")
+    def test_get_status_waiting_auth_failed(self, mock_tmux):
+        mock_tmux.get_history.return_value = load_fixture("droid_auth_failed_output.txt")
+
+        provider = DroidProvider("test1234", "test-session", "window-0")
+        status = provider.get_status()
+
+        assert status == TerminalStatus.WAITING_USER_ANSWER
 
 
 class TestDroidProviderMessageExtraction:

@@ -6,7 +6,7 @@ import os
 import time
 from typing import Any, Dict, Tuple
 
-import requests
+import requests  # type: ignore[import-untyped]
 from fastmcp import FastMCP
 from pydantic import Field
 

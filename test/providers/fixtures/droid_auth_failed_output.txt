@@ -1,0 +1,4 @@
+Authentication failed:
+unknown certificate verification error
+
+> Press Enter to try again

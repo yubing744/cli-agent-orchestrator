@@ -3,7 +3,7 @@
 import subprocess
 
 import click
-import requests
+import requests  # type: ignore[import-untyped]
 
 from cli_agent_orchestrator.constants import DEFAULT_PROVIDER, PROVIDERS, SERVER_HOST, SERVER_PORT
 from cli_agent_orchestrator.utils.context_files import get_context_provider

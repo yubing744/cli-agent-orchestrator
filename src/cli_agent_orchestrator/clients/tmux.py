@@ -22,10 +22,18 @@ class TmuxClient:
     def __init__(self) -> None:
         self.server = libtmux.Server()
 
-    def create_session(self, session_name: str, window_name: str, terminal_id: str) -> str:
+    def create_session(
+        self,
+        session_name: str,
+        window_name: str,
+        terminal_id: str,
+        environment_extra: Optional[Dict[str, str]] = None,
+    ) -> str:
         """Create detached tmux session with initial window and return window name."""
         try:
             environment = os.environ.copy()
+            if environment_extra:
+                environment.update(environment_extra)
             environment["CAO_TERMINAL_ID"] = terminal_id
 
             session = self.server.new_session(
@@ -43,16 +51,25 @@ class TmuxClient:
             logger.error(f"Failed to create session {session_name}: {e}")
             raise
 
-    def create_window(self, session_name: str, window_name: str, terminal_id: str) -> str:
+    def create_window(
+        self,
+        session_name: str,
+        window_name: str,
+        terminal_id: str,
+        environment_extra: Optional[Dict[str, str]] = None,
+    ) -> str:
         """Create window in session and return window name."""
         try:
             session = self.server.sessions.get(session_name=session_name)
             if not session:
                 raise ValueError(f"Session '{session_name}' not found")
 
-            window = session.new_window(
-                window_name=window_name, environment={"CAO_TERMINAL_ID": terminal_id}
-            )
+            window_env: Dict[str, str] = {"CAO_TERMINAL_ID": terminal_id}
+            if environment_extra:
+                window_env.update(environment_extra)
+            window_env["CAO_TERMINAL_ID"] = terminal_id
+
+            window = session.new_window(window_name=window_name, environment=window_env)
 
             logger.info(f"Created window '{window.name}' in session '{session_name}'")
             window_name_result = window.name

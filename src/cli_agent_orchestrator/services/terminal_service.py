@@ -1,6 +1,7 @@
 """Terminal service with workflow functions."""
 
 import logging
+import shlex
 from datetime import datetime
 from enum import Enum
 from typing import Dict, Optional
@@ -16,10 +17,15 @@ from cli_agent_orchestrator.constants import SESSION_PREFIX, TERMINAL_LOG_DIR
 from cli_agent_orchestrator.models.provider import ProviderType
 from cli_agent_orchestrator.models.terminal import Terminal, TerminalStatus
 from cli_agent_orchestrator.providers.manager import provider_manager
+from cli_agent_orchestrator.utils.context_files import (
+    get_context_environment,
+    get_context_working_directory,
+)
 from cli_agent_orchestrator.utils.terminal import (
     generate_session_name,
     generate_terminal_id,
     generate_window_name,
+    wait_for_shell,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +45,9 @@ def create_terminal(
     try:
         terminal_id = generate_terminal_id()
 
+        working_directory = get_context_working_directory(agent_profile)
+        environment_extra = get_context_environment(agent_profile)
+
         # Generate session name if not provided
         if not session_name:
             session_name = generate_session_name()
@@ -55,12 +64,31 @@ def create_terminal(
                 raise ValueError(f"Session '{session_name}' already exists")
 
             # Create new tmux session with this terminal as the initial window
-            tmux_client.create_session(session_name, window_name, terminal_id)
+            tmux_client.create_session(
+                session_name,
+                window_name,
+                terminal_id,
+                environment_extra=environment_extra,
+            )
         else:
             # Add window to existing session
             if not tmux_client.session_exists(session_name):
                 raise ValueError(f"Session '{session_name}' not found")
-            window_name = tmux_client.create_window(session_name, window_name, terminal_id)
+            window_name = tmux_client.create_window(
+                session_name,
+                window_name,
+                terminal_id,
+                environment_extra=environment_extra,
+            )
+
+        # Apply working directory before starting the provider.
+        if working_directory:
+            if wait_for_shell(tmux_client, session_name, window_name, timeout=10.0):
+                tmux_client.send_keys(
+                    session_name,
+                    window_name,
+                    f"cd {shlex.quote(working_directory)}",
+                )
 
         # Save terminal metadata to database
         db_create_terminal(terminal_id, session_name, window_name, provider, agent_profile)
